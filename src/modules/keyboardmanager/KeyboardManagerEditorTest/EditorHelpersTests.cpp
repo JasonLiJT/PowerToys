@@ -316,5 +316,42 @@ namespace EditorHelpersTests
             Assert::IsTrue(EditorHelpers::IsShortcutIllegal(Shortcut(std::vector<int32_t>{ VK_CONTROL, 0x4C })) == ShortcutErrorType::NoError);
             Assert::IsTrue(EditorHelpers::IsShortcutIllegal(Shortcut(std::vector<int32_t>{ VK_LWIN, VK_CONTROL, 0x41 })) == ShortcutErrorType::NoError);
         }
+
+        // Test that keys sharing a name (e.g. both "\\" keys on ISO keyboards) get distinct names, and the first keeps the original name
+        TEST_METHOD (MakeKeyNamesUnique_ShouldDisambiguateDuplicateNames_KeepingFirstUnchanged)
+        {
+            std::vector<std::pair<DWORD, std::wstring>> keyNames = {
+                { 0x41, L"A" },
+                { VK_OEM_5, L"\\" },
+                { VK_OEM_102, L"\\" },
+                { VK_LSHIFT, L"Shift (Left)" },
+            };
+
+            auto result = EditorHelpers::MakeKeyNamesUnique(keyNames);
+
+            Assert::IsTrue(keyNames.size() == result.size());
+            Assert::AreEqual(std::wstring(L"A"), result[0].second);
+            Assert::AreEqual(std::wstring(L"\\"), result[1].second);
+            Assert::AreEqual(std::wstring(L"\\ (VK 226)"), result[2].second);
+            Assert::AreEqual(std::wstring(L"Shift (Left)"), result[3].second);
+            for (size_t i = 0; i < keyNames.size(); i++)
+            {
+                Assert::IsTrue(keyNames[i].first == result[i].first);
+            }
+        }
+
+        // Test that a list without duplicate names is returned unchanged
+        TEST_METHOD (MakeKeyNamesUnique_ShouldReturnSameNames_WhenNoDuplicates)
+        {
+            std::vector<std::pair<DWORD, std::wstring>> keyNames = {
+                { 0x41, L"A" },
+                { 0x42, L"B" },
+                { VK_RETURN, L"Enter" },
+            };
+
+            auto result = EditorHelpers::MakeKeyNamesUnique(keyNames);
+
+            Assert::IsTrue(result == keyNames);
+        }
     };
 }

@@ -3,6 +3,9 @@
 #include <keyboardmanager/common/Helpers.h>
 
 #include "ShortcutErrorType.h"
+#include "EditorHelpers.h"
+
+#include <set>
 
 using Helpers::GetKeyType;
 
@@ -152,5 +155,27 @@ namespace EditorHelpers
         }
 
         return ShortcutErrorType::NoError;
+    }
+
+    // Function to make key names unique so they can be round-tripped back to key codes
+    std::vector<std::pair<DWORD, std::wstring>> MakeKeyNamesUnique(const std::vector<std::pair<DWORD, std::wstring>>& keyNames)
+    {
+        std::vector<std::pair<DWORD, std::wstring>> result;
+        result.reserve(keyNames.size());
+        std::set<std::wstring> usedNames;
+        for (const auto& [keyCode, keyName] : keyNames)
+        {
+            if (usedNames.insert(keyName).second)
+            {
+                result.push_back({ keyCode, keyName });
+                continue;
+            }
+
+            std::wstring uniqueName = keyName + L" (VK " + std::to_wstring(keyCode) + L")";
+            usedNames.insert(uniqueName);
+            result.push_back({ keyCode, uniqueName });
+        }
+
+        return result;
     }
 }

@@ -22,4 +22,9 @@ namespace EditorHelpers
 
     // Function to check if the shortcut is illegal (i.e. Win+L or Ctrl+Alt+Del)
     ShortcutErrorType IsShortcutIllegal(Shortcut shortcut);
+
+    // Function to make key names unique so they can be round-tripped back to key codes.
+    // Some layouts map different keys to the same character (e.g. VK_OEM_5 and VK_OEM_102 are both "\" on ISO keyboards).
+    // The first key with a given name keeps it; later keys get the virtual key code appended, e.g. "\ (VK 226)".
+    std::vector<std::pair<DWORD, std::wstring>> MakeKeyNamesUnique(const std::vector<std::pair<DWORD, std::wstring>>& keyNames);
 }

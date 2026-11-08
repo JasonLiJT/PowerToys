@@ -12,6 +12,16 @@
 #include <keyboardmanager/KeyboardManagerEditorLibrary/EditorHelpers.h>
 #include <common/interop/keyboard_layout.h>
 
+namespace
+{
+    // The new editor identifies keys by display name, so names must map back to a single key code.
+    // Some layouts give different keys the same name (e.g. both ISO "\" keys), so make them unique.
+    std::vector<std::pair<DWORD, std::wstring>> GetUniqueKeyNameList(LayoutMap& layoutMap)
+    {
+        return EditorHelpers::MakeKeyNamesUnique(layoutMap.GetKeyNameList(false));
+    }
+}
+
 extern "C"
 {
     void* CreateMappingConfiguration()
@@ -698,7 +708,22 @@ bool GetShortcutRemapByType(void* config, int operationType, int index, Shortcut
             return;
         }
         LayoutMap layoutMap;
-        std::wstring name = layoutMap.GetKeyName(static_cast<DWORD>(keyCode));
+        const DWORD code = static_cast<DWORD>(keyCode);
+        std::wstring name;
+        for (const auto& [listCode, listName] : GetUniqueKeyNameList(layoutMap))
+        {
+            if (listCode == code)
+            {
+                name = listName;
+                break;
+            }
+        }
+
+        if (name.empty())
+        {
+            name = layoutMap.GetKeyName(code);
+        }
+
         wcsncpy_s(keyName, maxCount, name.c_str(), _TRUNCATE);
     }
 
@@ -713,7 +738,15 @@ bool GetShortcutRemapByType(void* config, int operationType, int index, Shortcut
 
         LayoutMap layoutMap;
         std::wstring name(keyName);
-        int keyCode = static_cast<int>(layoutMap.GetKeyFromName(name));
+        int keyCode = 0;
+        for (const auto& [listCode, listName] : GetUniqueKeyNameList(layoutMap))
+        {
+            if (listName == name)
+            {
+                keyCode = static_cast<int>(listCode);
+                break;
+            }
+        }
         Logger::info(L"Key code for key name {0}: {1}", keyName, keyCode);
         return keyCode;
     }
@@ -858,6 +891,18 @@ int GetKeyboardKeysList(bool isShortcut, KeyNamePair* keyList, int maxCount)
 
     LayoutMap layoutMap;
     auto keyNameList = layoutMap.GetKeyNameList(isShortcut);
+
+    // Use the same unique names that GetKeyCodeFromName resolves, so duplicate-named keys stay distinct
+    auto uniqueKeyNameList = GetUniqueKeyNameList(layoutMap);
+    for (auto& entry : keyNameList)
+    {
+        const DWORD code = entry.first;
+        auto it = std::find_if(uniqueKeyNameList.begin(), uniqueKeyNameList.end(), [code](const auto& uniqueEntry) { return uniqueEntry.first == code; });
+        if (it != uniqueKeyNameList.end())
+        {
+            entry.second = it->second;
+        }
+    }
 
     int count = (std::min)(static_cast<int>(keyNameList.size()), maxCount);
 
